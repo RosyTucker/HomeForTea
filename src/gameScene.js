@@ -1,7 +1,7 @@
 WorldConfig = {};
 
-const verticalVelocityDelta = 10;
-const horizontalVelocityDelta = 30;
+const verticalVelocityDelta = 400;
+const horizontalVelocityDelta = 2;
 
 const tileSize = 200;
 
@@ -14,7 +14,7 @@ Scenery = function (game, y) {
   let spriteGroup;
 
   const addNewItem = function (spriteGroup) {
-    const item = new SceneryItem(randomItem(textures), nextItemX, y);
+    const item = new SceneryItem(game, randomItem(textures), nextItemX, y);
     items.add(item);
     item.create(spriteGroup);
     nextItemX += tileSize;
@@ -47,10 +47,11 @@ Scenery = function (game, y) {
   }
 };
 
-SceneryItem = function (texture, x, y) {
+SceneryItem = function (game, texture, x, y) {
   this.create = function (group) {
     this.sprite = group.create(x, y, texture);
     this.sprite.body.immovable = true;
+    game.physics.enable(this.sprite, Phaser.Physics.ARCADE);
   };
 
   this.update = function (cursors, player) {
@@ -60,31 +61,38 @@ SceneryItem = function (texture, x, y) {
 
 Player = function (game) {
   this.realX = 0;
+  this.currentVelocityX = 0;
 
   this.create = function () {
     this.sprite = game.add.sprite(150, game.world.centerY, 'player');
-    game.physics.enable(this.sprite, Phaser.Physics.ARCADE);
-
     this.sprite.anchor.setTo(0.5, 0.5);
+    game.physics.enable(this.sprite, Phaser.Physics.ARCADE);
     this.sprite.health = 20;
-    this.sprite.rotation = Math.PI / 2;
     this.sprite.body.collideWorldBounds = true;
-    this.sprite.body.setSize(this.sprite.width, this.sprite.height);
   };
 
-  this.update = function (cursors, collisionGroup) {
-    game.physics.arcade.collide(this.sprite, collisionGroup);
+  this.update = function (cursors, ...collisionGroups) {
+    const sprite = this.sprite;
+
+    collisionGroups.forEach(function (group) {
+      game.physics.arcade.collide(sprite, group);
+    });
 
     if (cursors.right.isDown) {
-      this.realX += horizontalVelocityDelta;
+      this.currentVelocityX = Math.min(30, this.currentVelocityX + horizontalVelocityDelta);
+    } else {
+      this.currentVelocityX = Math.max(0, this.currentVelocityX - horizontalVelocityDelta/2);
     }
+
+    this.realX = this.realX + this.currentVelocityX;
+
 
     if (cursors.up.isDown) {
-      this.sprite.body.position.y -= verticalVelocityDelta;
-    }
-
-    if (cursors.down.isDown) {
-      this.sprite.body.position.y += verticalVelocityDelta;
+      this.sprite.body.velocity.y = -verticalVelocityDelta;
+    } else if (cursors.down.isDown) {
+      this.sprite.body.velocity.y = verticalVelocityDelta;
+    } else {
+      this.sprite.body.velocity.y = 0;
     }
   }
 };
@@ -113,24 +121,22 @@ GameState = function (game) {
   };
 
   this.update = function () {
-    player.update(cursors, topScenery.spriteGroup);
+    player.update(cursors, topScenery.spriteGroup, bottomScenery.spriteGroup);
     topScenery.update(cursors, player);
     bottomScenery.update(cursors, player);
   };
 
   this.render = function () {
     game.debug.text('Hello', 32, 32);
+    // game.debug.body(player.sprite);
+    // bottomScenery.spriteGroup.forEach(function (item) {
+    //   game.debug.body(item)
+    // });
+    // topScenery.spriteGroup.forEach(function (item) {
+    //   game.debug.body(item)
+    // });
   };
 };
-
-Object.defineProperty(Phaser.Sprite.prototype, 'scaleXY', {
-  get: function () {
-    return this.scale.x;
-  },
-  set: function (v) {
-    this.scale.set(v, v);
-  }
-});
 
 function randomItem(array) {
   return array[Math.floor(Math.random() * array.length)];
