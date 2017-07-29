@@ -1,5 +1,5 @@
 const verticalVelocityDelta = 400.0;
-const powerReductionYFactor = 120;
+const powerReductionYFactor = 12000;
 
 const horizontalVelocityDelta = 2.0;
 const powerReductionXFactor = 400;
