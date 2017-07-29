@@ -1,7 +1,10 @@
-WorldConfig = {};
+const verticalVelocityDelta = 400.0;
+const powerReductionYFactor = 120;
 
-const verticalVelocityDelta = 400;
-const horizontalVelocityDelta = 2;
+const horizontalVelocityDelta = 2.0;
+const powerReductionXFactor = 400;
+
+const constantPowerReduction = 0.0001;
 
 const tileSize = 200;
 
@@ -61,13 +64,13 @@ SceneryItem = function (game, texture, x, y) {
 
 Player = function (game) {
   this.realX = 0;
+  this.power = 100;
   this.currentVelocityX = 0;
 
   this.create = function () {
     this.sprite = game.add.sprite(150, game.world.centerY, 'player');
     this.sprite.anchor.setTo(0.5, 0.5);
     game.physics.enable(this.sprite, Phaser.Physics.ARCADE);
-    this.sprite.health = 20;
     this.sprite.body.collideWorldBounds = true;
   };
 
@@ -78,28 +81,46 @@ Player = function (game) {
       game.physics.arcade.collide(sprite, group);
     });
 
+
+    let deltaX, deltaY;
     if (cursors.right.isDown) {
-      this.currentVelocityX = Math.min(30, this.currentVelocityX + horizontalVelocityDelta);
+      deltaX = Math.min(30, this.currentVelocityX + horizontalVelocityDelta);
     } else {
-      this.currentVelocityX = Math.max(0, this.currentVelocityX - horizontalVelocityDelta/2);
+      deltaX = Math.max(0, this.currentVelocityX - horizontalVelocityDelta / 2);
     }
 
+    this.currentVelocityX = deltaX;
     this.realX = this.realX + this.currentVelocityX;
 
-
     if (cursors.up.isDown) {
-      this.sprite.body.velocity.y = -verticalVelocityDelta;
+      deltaY = -verticalVelocityDelta;
     } else if (cursors.down.isDown) {
-      this.sprite.body.velocity.y = verticalVelocityDelta;
+      deltaY = verticalVelocityDelta;
     } else {
-      this.sprite.body.velocity.y = 0;
+      deltaY = 0;
     }
+
+    this.sprite.body.velocity.y = deltaY;
+
+    const powerReductionForX = Math.abs(deltaX) / powerReductionXFactor;
+    const powerReductionForY = Math.abs(deltaY) / powerReductionYFactor;
+
+    this.power -= powerReductionForX + powerReductionForY + constantPowerReduction;
   }
 };
 
 GameState = function (game) {
-  let player, topScenery, bottomScenery;
+  let player, topScenery, bottomScenery, powerDisplay;
+  let startTime;
   let cursors;
+
+  const endGameIfNeeded = function () {
+    console.error(game.time.now - startTime);
+    if (player.power <= 0) {
+      game.state.states['gameOver'].gameTime = (game.time.now - startTime) / 1000;
+      game.state.start('gameOver');
+    }
+  };
 
   this.preload = function () {
     player = new Player(game);
@@ -117,24 +138,24 @@ GameState = function (game) {
     player.create();
     topScenery.create();
     bottomScenery.create();
+    const style = { font: "32px Helvetica" };
+    powerDisplay = game.add.text(12, game.world.height - tileSize - 50, '', style);
+
     game.camera.focusOnXY(0, 0);
   };
 
   this.update = function () {
+    startTime = startTime || game.time.now;
     player.update(cursors, topScenery.spriteGroup, bottomScenery.spriteGroup);
     topScenery.update(cursors, player);
     bottomScenery.update(cursors, player);
+    endGameIfNeeded(player);
   };
 
   this.render = function () {
-    game.debug.text('Hello', 32, 32);
-    // game.debug.body(player.sprite);
-    // bottomScenery.spriteGroup.forEach(function (item) {
-    //   game.debug.body(item)
-    // });
-    // topScenery.spriteGroup.forEach(function (item) {
-    //   game.debug.body(item)
-    // });
+    const powerToDisplay = parseFloat(player.power).toFixed(2);
+    powerDisplay.fill = powerToDisplay < 30 ? "#f12d46" : "#69a758";
+    powerDisplay.text = `Power ${powerToDisplay}%`;
   };
 };
 

@@ -5,8 +5,11 @@ function Preloader(game)
 
 Preloader.prototype.preload = function() {
   const gameState = new GameState(this.game);
+  const gameOverState = new GameOverState(this.game);
   gameState.preload();
+  gameOverState.preload();
   this.game.state.add('game', gameState);
+  this.game.state.add('gameOver', gameOverState);
 };
 
 Preloader.prototype.create = function() {
